@@ -58,7 +58,7 @@ class BangladeshModel(Model):
     step_time = 1
 
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-    file_name = os.path.join(BASE_DIR, "data", "demo-4.csv")
+    file_name = os.path.join(BASE_DIR, "data", "demo-4-numerical.csv")
 
     def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
 
