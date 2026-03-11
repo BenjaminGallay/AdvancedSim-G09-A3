@@ -1,6 +1,7 @@
 import os
 from collections import defaultdict
 
+import analytical_recorder
 import pandas as pd
 from components import Bridge, Intersection, Link, Sink, Source, SourceSink
 from mesa import Model
@@ -60,7 +61,9 @@ class BangladeshModel(Model):
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
     file_name = os.path.join(BASE_DIR, "data", "demo-4-numerical.csv")
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(
+        self, breakdown_probabilities, seed=None, x_max=500, y_max=500, x_min=0, y_min=0
+    ):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -68,6 +71,7 @@ class BangladeshModel(Model):
         self.space = None
         self.sources = []
         self.sinks = []
+        self.breakdown_probabilities = breakdown_probabilities
 
         self.generate_model()
 
@@ -120,6 +124,8 @@ class BangladeshModel(Model):
 
         for df in df_objects_all:
             for _, row in df.iterrows():  # index, row in ...
+                # sends length data to the analytical recorder to compute the length of the road
+                analytical_recorder.road_length_record(row["length"])
                 # create agents according to model_type
                 model_type = row["model_type"].strip()
                 agent = None
@@ -143,9 +149,16 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
                 elif model_type == "bridge":
+                    # sends data about the bridge to the analytical recoder fo the mean delay value computation
+                    analytical_recorder.bridge_delay_record(
+                        row["length"],
+                        int(row["condition"]),
+                        self.breakdown_probabilities,
+                    )
                     agent = Bridge(
                         row["id"],
                         self,
+                        self.breakdown_probabilities,
                         row["length"],
                         name,
                         row["road"],
