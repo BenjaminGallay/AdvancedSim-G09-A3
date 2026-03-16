@@ -73,7 +73,7 @@ class BangladeshModel(Model):
         self.sources = []
         self.sinks = []
         self.breakdown_probabilities = breakdown_probabilities
-        self.graph = nx.DiGraph()
+        self.graph = nx.DiGraph()  # We use a directed graph because it offers more possibilities to model if a single side of a bridge breaks for example. It is alos easier to store the list of ids for setting the path using a directed graph
 
         self.generate_model()
 
@@ -97,22 +97,6 @@ class BangladeshModel(Model):
             if not df_objects_on_road.empty:
                 df_objects_all.append(df_objects_on_road)
 
-                """
-                Set the path
-                1. get the serie of object IDs on a given road in the cvs in the original order
-                2. add the (straight) path to the path_ids_dict
-                3. put the path in reversed order and reindex
-                4. add the path to the path_ids_dict so that the vehicles can drive backwards too
-                """
-                # path_ids = df_objects_on_road["id"]
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
-                # path_ids = path_ids[::-1]
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
-
         # put back to df with selected roads so that min and max and be easily calculated
         df = pd.concat(df_objects_all)
         y_min, y_max, x_min, x_max = set_lat_lon_bound(
@@ -123,6 +107,7 @@ class BangladeshModel(Model):
         # not to be confused with the SimpleContinuousModule visualization
         self.space = ContinuousSpace(x_max, y_max, True, x_min, y_min)
 
+        # Store the information about the start of the segment of road the program is currently following
         current_edge_start = {"road": None, "id": None}
         current_edge_weight = 0
         current_edge_id_list = []
@@ -145,6 +130,7 @@ class BangladeshModel(Model):
                     agent = Source(row["id"], self, row["length"], name, row["road"])
                     self.sources.append(agent.unique_id)
 
+                    # We add a node corresponding to the element and link it to the previous node if they are on the same road
                     self.graph.add_node(row["id"], road=row["road"], type=model_type)
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
@@ -167,6 +153,7 @@ class BangladeshModel(Model):
                     agent = Sink(row["id"], self, row["length"], name, row["road"])
                     self.sinks.append(agent.unique_id)
 
+                    # We add a node corresponding to the element and link it to the previous node if they are on the same road
                     self.graph.add_node(row["id"], road=row["road"], type=model_type)
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
@@ -192,6 +179,7 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
 
+                    # We add a node corresponding to the element and link it to the previous node if they are on the same road
                     self.graph.add_node(row["id"], road=row["road"], type=model_type)
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
@@ -240,6 +228,7 @@ class BangladeshModel(Model):
                             row["id"], self, row["length"], name, row["road"]
                         )
 
+                    # Intersection elements are stored in multiple roads, it is necessary to check wether it is already in the graph or not.
                     if row["id"] not in list(self.graph.nodes):
                         self.graph.add_node(
                             row["id"], road=[row["road"]], type=model_type
@@ -247,6 +236,7 @@ class BangladeshModel(Model):
                     else:  # if the intersection has already been added from another road
                         self.graph.nodes[row["id"]]["road"].append(row["road"])
 
+                    # We add a node corresponding to the element and link it to the previous node if they are on the same road
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
                             current_edge_start["id"],
@@ -271,6 +261,7 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
+    # Given a source and a sink, sets the shortest (directed!) path between the two in the path_ids_dict as a list of ids
     def update_path_dict(self, source, sink):
         nodes_list = nx.shortest_path(
             self.graph, source=source, target=sink, weight="weight"
@@ -293,6 +284,7 @@ class BangladeshModel(Model):
             sink = self.random.choice(self.sinks)
             if sink is not source:
                 break
+        # Ensures that each path is calculated at most once
         if (source, sink) not in self.path_ids_dict:
             self.update_path_dict(source, sink)
         return self.path_ids_dict[source, sink]
@@ -300,12 +292,6 @@ class BangladeshModel(Model):
     # TODO
     def get_route(self, source):
         return self.get_random_route(source)
-
-    def get_straight_route(self, source):
-        """
-        pick up a straight route given an origin
-        """
-        return self.path_ids_dict[source, None]
 
     def step(self):
         """
