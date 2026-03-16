@@ -28,7 +28,7 @@ def set_lat_lon_bound(lat_min, lat_max, lon_min, lon_max, edge_ratio=0.02):
     return y_min, y_max, x_min, x_max
 
 
-# ---------------------------------------------------------------
+# ---------------------------------------------------------------j
 class BangladeshModel(Model):
     """
     The main (top-level) simulation model
@@ -222,10 +222,10 @@ class BangladeshModel(Model):
                     # Intersection elements are stored in multiple roads, it is necessary to check wether it is already in the graph or not.
                     if row["id"] not in list(self.graph.nodes):
                         self.graph.add_node(
-                            row["id"], road=[row["road"]], type=model_type
+                            row["id"], road={row["road"]}, type=model_type
                         )
                     else:  # if the intersection has already been added from another road
-                        self.graph.nodes[row["id"]]["road"].append(row["road"])
+                        self.graph.nodes[row["id"]]["road"].add(row["road"])
 
                     # We add a node corresponding to the element and link it to the previous node if they are on the same road
                     if current_edge_start["road"] == row["road"]:
