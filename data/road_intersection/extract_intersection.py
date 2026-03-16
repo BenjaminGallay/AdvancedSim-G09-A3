@@ -93,15 +93,13 @@ for road, group in roads_csv.groupby('road'):
         csv_road_chainage[road] = arr_chainage
         csv_road_firstrow[road] = group.iloc[0]
 
+
+# Deduplicate intersections: only add if no intersection for this pair within 200m
 new_rows = []
-i = 0
+intersection_registry = {}
 for idx, intersection in nodes.iterrows():
-    i += 1
-    if i % 10000 == 0:
-        print(f"Processing intersection {i}/{len(nodes)}...")
     point = intersection['intersection_point']
     lat, lon = intersection['lat'], intersection['lon']
-    # Find closest roads
     road_distances = [(road, line.distance(point)) for road, line in csv_road_lines.items()]
     road_distances = sorted(road_distances, key=lambda x: x[1])
     if len(road_distances) < 2:
@@ -109,8 +107,23 @@ for idx, intersection in nodes.iterrows():
     (road1, d1), (road2, d2) = road_distances[:2]
     if d1 > 0.001 or d2 > 0.001:
         continue
+    # Registry key: sorted tuple of road names
+    pair_key = tuple(sorted([road1, road2]))
+    # Check if intersection for this pair exists within 0.002 deg (~200m)
+    already = False
+    if pair_key in intersection_registry:
+        for prev_lat, prev_lon in intersection_registry[pair_key]:
+            dist = np.sqrt((lat - prev_lat)**2 + (lon - prev_lon)**2)
+            if dist < 0.002:
+                already = True
+                break
+    if already:
+        continue
+    # Register this intersection
+    intersection_registry.setdefault(pair_key, []).append((lat, lon))
     new_idxs = []
-    print(f"Processing intersection {idx} at ({lat:.6f}, {lon:.6f}) between {road1} and {road2}")
+    new_rows_pair = []
+    print(f"Processing intersection {idx} between {road1} and {road2} at ({lat:.6f}, {lon:.6f})")
     for road in [road1, road2]:
         arr_lat, arr_lon = csv_road_latlon[road]
         arr_chainage = csv_road_chainage[road]
@@ -120,7 +133,7 @@ for idx, intersection in nodes.iterrows():
         chainage, insert_after, max_dist, i1 = result
         if max_dist > 0.001:
             continue
-        new_idx = roads_csv['idx'].max() + 1 + len(new_rows)
+        new_idx = roads_csv['idx'].max() + 1 + len(new_rows) + len(new_rows_pair)
         new_lrp = f"LRP_CROSS_{new_idx}"
         new_row = csv_road_firstrow[road].copy()
         new_row['chainage'] = chainage
@@ -133,15 +146,16 @@ for idx, intersection in nodes.iterrows():
         new_row['bridgedual'] = ''
         new_row['condition'] = ''
         new_row['crossing'] = None
-        # Insert after insert_after in the full DataFrame
         road_mask = roads_csv['road'] == road
         idxs = roads_csv[road_mask].index.tolist()
         insert_pos = idxs[insert_after] + 1 if insert_after < len(idxs) else len(roads_csv)
-        new_rows.append((insert_pos, new_row, road))
+        new_rows_pair.append((insert_pos, new_row, road))
         new_idxs.append(new_idx)
-    if len(new_idxs) == 2:
-        new_rows[-2][1]['crossing'] = new_idxs[1]
-        new_rows[-1][1]['crossing'] = new_idxs[0]
+    # Always fill crossing column for both
+    if len(new_rows_pair) == 2:
+        new_rows_pair[0][1]['crossing'] = new_idxs[1]
+        new_rows_pair[1][1]['crossing'] = new_idxs[0]
+    new_rows.extend(new_rows_pair)
 
 print(f"Inserting new rows for intersections... : {len(new_rows)}")
 # Insert new rows into DataFrame
