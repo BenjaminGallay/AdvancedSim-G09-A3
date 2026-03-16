@@ -1,8 +1,6 @@
 import os
 from collections import defaultdict
 
-import analytical_recorder
-import networkx as nx
 import pandas as pd
 from components import Bridge, Intersection, Link, Sink, Source, SourceSink
 from mesa import Model
@@ -60,11 +58,9 @@ class BangladeshModel(Model):
     step_time = 1
 
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-    file_name = os.path.join(BASE_DIR, "data", "demo-4-numerical.csv")
+    file_name = os.path.join(BASE_DIR, "data", "roads.csv")
 
-    def __init__(
-        self, breakdown_probabilities, seed=None, x_max=500, y_max=500, x_min=0, y_min=0
-    ):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
 
         self.schedule = BaseScheduler(self)
         self.running = True
@@ -72,8 +68,6 @@ class BangladeshModel(Model):
         self.space = None
         self.sources = []
         self.sinks = []
-        self.breakdown_probabilities = breakdown_probabilities
-        self.graph = nx.DiGraph()
 
         self.generate_model()
 
@@ -83,11 +77,16 @@ class BangladeshModel(Model):
 
         Warning: the labels are the same as the csv column labels
         """
+
         df = pd.read_csv(self.file_name)
 
         # a list of names of roads to be generated
         # TODO You can also read in the road column to generate this list automatically
         roads = ["N1", "N2"]
+
+        target_roads = df.loc[(df['road'].str.startswith('N1' or 'N2')) & (df['road'].str.len() == 4)]
+        new_roads = target_roads['road'].unique().tolist()
+        roads = list(set(roads + new_roads))
 
         df_objects_all = []
         for road in roads:
@@ -104,14 +103,14 @@ class BangladeshModel(Model):
                 3. put the path in reversed order and reindex
                 4. add the path to the path_ids_dict so that the vehicles can drive backwards too
                 """
-                # path_ids = df_objects_on_road["id"]
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
-                # path_ids = path_ids[::-1]
-                # path_ids.reset_index(inplace=True, drop=True)
-                # self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
-                # self.path_ids_dict[path_ids[0], None] = path_ids
+                path_ids = df_objects_on_road["id"]
+                path_ids.reset_index(inplace=True, drop=True)
+                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
+                self.path_ids_dict[path_ids[0], None] = path_ids
+                path_ids = path_ids[::-1]
+                path_ids.reset_index(inplace=True, drop=True)
+                self.path_ids_dict[path_ids[0], path_ids.iloc[-1]] = path_ids
+                self.path_ids_dict[path_ids[0], None] = path_ids
 
         # put back to df with selected roads so that min and max and be easily calculated
         df = pd.concat(df_objects_all)
@@ -123,14 +122,8 @@ class BangladeshModel(Model):
         # not to be confused with the SimpleContinuousModule visualization
         self.space = ContinuousSpace(x_max, y_max, True, x_min, y_min)
 
-        current_edge_start = {"road": None, "id": None}
-        current_edge_weight = 0
-        current_edge_id_list = []
-
         for df in df_objects_all:
             for _, row in df.iterrows():  # index, row in ...
-                # sends length data to the analytical recorder to compute the length of the road
-                analytical_recorder.road_length_record(row["length"])
                 # create agents according to model_type
                 model_type = row["model_type"].strip()
                 agent = None
@@ -144,125 +137,31 @@ class BangladeshModel(Model):
                 if model_type == "source":
                     agent = Source(row["id"], self, row["length"], name, row["road"])
                     self.sources.append(agent.unique_id)
-
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
-                    if current_edge_start["road"] == row["road"]:
-                        self.graph.add_edge(
-                            current_edge_start["id"],
-                            row["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list,
-                        )
-                        self.graph.add_edge(
-                            row["id"],
-                            current_edge_start["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list[::-1],
-                        )
-                    current_edge_start = {"road": row["road"], "id": row["id"]}
-                    current_edge_weight = 0
-                    current_edge_id_list = []
-
                 elif model_type == "sink":
                     agent = Sink(row["id"], self, row["length"], name, row["road"])
                     self.sinks.append(agent.unique_id)
-
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
-                    if current_edge_start["road"] == row["road"]:
-                        self.graph.add_edge(
-                            current_edge_start["id"],
-                            row["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list,
-                        )
-                        self.graph.add_edge(
-                            row["id"],
-                            current_edge_start["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list[::-1],
-                        )
-                    current_edge_start = {"road": row["road"], "id": row["id"]}
-                    current_edge_weight = 0
-                    current_edge_id_list = []
-
                 elif model_type == "sourcesink":
                     agent = SourceSink(
                         row["id"], self, row["length"], name, row["road"]
                     )
                     self.sources.append(agent.unique_id)
                     self.sinks.append(agent.unique_id)
-
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
-                    if current_edge_start["road"] == row["road"]:
-                        self.graph.add_edge(
-                            current_edge_start["id"],
-                            row["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list,
-                        )
-                        self.graph.add_edge(
-                            row["id"],
-                            current_edge_start["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list[::-1],
-                        )
-                    current_edge_start = {"road": row["road"], "id": row["id"]}
-                    current_edge_weight = 0
-                    current_edge_id_list = []
-
                 elif model_type == "bridge":
-                    # sends data about the bridge to the analytical recoder fo the mean delay value computation
-                    analytical_recorder.bridge_delay_record(
-                        row["length"],
-                        int(row["condition"]),
-                        self.breakdown_probabilities,
-                    )
                     agent = Bridge(
                         row["id"],
                         self,
-                        self.breakdown_probabilities,
                         row["length"],
                         name,
                         row["road"],
                         row["condition"],
                     )
-                    current_edge_weight += row["length"]
-                    current_edge_id_list.append(row["id"])
-
                 elif model_type == "link":
                     agent = Link(row["id"], self, row["length"], name, row["road"])
-                    current_edge_weight += row["length"]
-                    current_edge_id_list.append(row["id"])
-
                 elif model_type == "intersection":
                     if not row["id"] in self.schedule._agents:
                         agent = Intersection(
                             row["id"], self, row["length"], name, row["road"]
                         )
-
-                    if row["id"] not in list(self.graph.nodes):
-                        self.graph.add_node(
-                            row["id"], road=[row["road"]], type=model_type
-                        )
-                    else:  # if the intersection has already been added from another road
-                        self.graph.nodes[row["id"]]["road"].append(row["road"])
-
-                    if current_edge_start["road"] == row["road"]:
-                        self.graph.add_edge(
-                            current_edge_start["id"],
-                            row["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list,
-                        )
-                        self.graph.add_edge(
-                            row["id"],
-                            current_edge_start["id"],
-                            weight=current_edge_weight,
-                            ids=current_edge_id_list[::-1],
-                        )
-                    current_edge_start = {"road": row["road"], "id": row["id"]}
-                    current_edge_weight = 0
-                    current_edge_id_list = []
 
                 if agent:
                     self.schedule.add(agent)
@@ -270,19 +169,6 @@ class BangladeshModel(Model):
                     x = row["lon"]
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
-
-    def update_path_dict(self, source, sink):
-        nodes_list = nx.shortest_path(
-            self.graph, source=source, target=sink, weight="weight"
-        )
-        path = []
-        for i in range(len(nodes_list) - 1):
-            path.append(nodes_list[i])
-            path += self.graph[nodes_list[i]][nodes_list[i + 1]]["ids"]
-        path.append(nodes_list[-1])
-        print("I'm adding the path", path)
-        self.path_ids_dict[source, sink] = path
-        return
 
     def get_random_route(self, source):
         """
@@ -293,13 +179,11 @@ class BangladeshModel(Model):
             sink = self.random.choice(self.sinks)
             if sink is not source:
                 break
-        if (source, sink) not in self.path_ids_dict:
-            self.update_path_dict(source, sink)
         return self.path_ids_dict[source, sink]
 
     # TODO
     def get_route(self, source):
-        return self.get_random_route(source)
+        return self.get_straight_route(source)
 
     def get_straight_route(self, source):
         """
