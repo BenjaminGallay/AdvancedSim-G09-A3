@@ -9,6 +9,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 roads_csv = os.path.join(BASE_DIR, "data", "input_dataset_reformatting", "_roads3.csv")
 bmms_xlsx = os.path.join(BASE_DIR, "data", "input_dataset_reformatting", "BMMS_overview.xlsx")
 out_csv = os.path.join(BASE_DIR, "data", "roads.csv")
+out_csv_intermediate = os.path.join(BASE_DIR, "data", "roads_int.csv")
 
 def bmms_backfill(bmms_sub, df):
     bmms_next_map = {
@@ -267,6 +268,8 @@ def main():
     # Preprocess BMMS into roads3-like points, resolve duplicates, and prepare BMMS merge table.
     roads_preprocessed, bmms_for_merge = preprocess_bmms.preprocess(roads_raw, bmms_raw)
     print(f'Preprocessed roads and BMMS data')
+    #save roads_preprocessed to csv for inspection
+    roads_preprocessed.to_csv(out_csv_intermediate, index=False)
     
     # Build simulation rows: start, segments, end.
     segments = build_segments(roads_preprocessed, bmms_for_merge)
@@ -284,9 +287,10 @@ def main():
     df_out = assign_numeric_ids(df_out)
 
     df_out = df_out.drop(columns=["_chainage_order"])
-
+    
     df_out.to_csv(out_csv, index=False)
     print(f"Wrote {len(df_out)} rows to {out_csv}")
+    
 
 
 if __name__ == "__main__":
