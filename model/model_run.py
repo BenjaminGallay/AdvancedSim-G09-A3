@@ -1,9 +1,6 @@
 import statistics
 import time
 
-import analytical_recorder
-import matplotlib.pyplot as plt
-import numpy
 import statistical_recorder
 
 from model import BangladeshModel
@@ -67,7 +64,7 @@ for scenario in scenarios:
     print(f"\n--- Running scenario {scenario} ---")
 
     for seed in seeds:
-        analytical_recorder.reset()
+        # analytical_recorder.reset()
         sim_model = BangladeshModel(
             seed=seed, breakdown_probabilities=BREAKDOWN_PROBABILITIES[scenario]
         )
@@ -88,9 +85,9 @@ for scenario in scenarios:
         ":",
         statistics.mean(travel_times),
     )
-    print(
-        "analytical expected travel time for scenario",
-        scenario,
-        ":",
-        analytical_recorder.get_expected_mean_travel_time(),
-    )
+    # print(
+    #     "analytical expected travel time for scenario",
+    #     scenario,
+    #     ":",
+    #     analytical_recorder.get_expected_mean_travel_time(),
+    # )

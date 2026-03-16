@@ -1,7 +1,6 @@
 import os
 from collections import defaultdict
 
-import analytical_recorder
 import networkx as nx
 import pandas as pd
 from components import Bridge, Intersection, Link, Sink, Source, SourceSink
@@ -114,8 +113,6 @@ class BangladeshModel(Model):
 
         for df in df_objects_all:
             for _, row in df.iterrows():  # index, row in ...
-                # sends length data to the analytical recorder to compute the length of the road
-                analytical_recorder.road_length_record(row["length"])
                 # create agents according to model_type
                 model_type = row["model_type"].strip()
                 agent = None
@@ -199,12 +196,6 @@ class BangladeshModel(Model):
                     current_edge_id_list = []
 
                 elif model_type == "bridge":
-                    # sends data about the bridge to the analytical recoder fo the mean delay value computation
-                    analytical_recorder.bridge_delay_record(
-                        row["length"],
-                        int(row["condition"]),
-                        self.breakdown_probabilities,
-                    )
                     agent = Bridge(
                         row["id"],
                         self,
@@ -271,7 +262,7 @@ class BangladeshModel(Model):
             path.append(nodes_list[i])
             path += self.graph[nodes_list[i]][nodes_list[i + 1]]["ids"]
         path.append(nodes_list[-1])
-        print("I'm adding the path", path)
+        # print("I'm adding the path", path)
         self.path_ids_dict[source, sink] = path
         return
 
