@@ -123,16 +123,17 @@ for idx, intersection in nodes.iterrows():
     intersection_registry.setdefault(pair_key, []).append((lat, lon))
     new_idxs = []
     new_rows_pair = []
-    print(f"Processing intersection {idx} between {road1} and {road2} at ({lat:.6f}, {lon:.6f})")
+    results = []
     for road in [road1, road2]:
         arr_lat, arr_lon = csv_road_latlon[road]
         arr_chainage = csv_road_chainage[road]
         result = interpolate_chainage_fast(arr_lat, arr_lon, arr_chainage, lat, lon)
-        if result is None:
-            continue
-        chainage, insert_after, max_dist, i1 = result
-        if max_dist > 0.001:
-            continue
+        results.append(result)
+    # Only proceed if both roads have valid interpolation
+    if any(r is None or r[2] > 0.001 for r in results):
+        continue
+    for i, road in enumerate([road1, road2]):
+        chainage, insert_after, max_dist, i1 = results[i]
         new_idx = roads_csv['idx'].max() + 1 + len(new_rows) + len(new_rows_pair)
         new_lrp = f"LRP_CROSS_{new_idx}"
         new_row = csv_road_firstrow[road].copy()
@@ -152,9 +153,8 @@ for idx, intersection in nodes.iterrows():
         new_rows_pair.append((insert_pos, new_row, road))
         new_idxs.append(new_idx)
     # Always fill crossing column for both
-    if len(new_rows_pair) == 2:
-        new_rows_pair[0][1]['crossing'] = new_idxs[1]
-        new_rows_pair[1][1]['crossing'] = new_idxs[0]
+    new_rows_pair[0][1]['crossing'] = new_idxs[1]
+    new_rows_pair[1][1]['crossing'] = new_idxs[0]
     new_rows.extend(new_rows_pair)
 
 print(f"Inserting new rows for intersections... : {len(new_rows)}")
