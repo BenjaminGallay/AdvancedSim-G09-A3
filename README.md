@@ -1,24 +1,25 @@
-# Example README File
+# What is this project about?
 
-Created by: EPA133a Group xx
+This repository contains the work for the second assignment of the Advanced Simulation course of TU Delft by EPA133a Group 09
 
-|    Name     | Student Number |
-| :---------: | :------------- |
-| Mary White  | 1234567        |
-| David Brown | 7654321        |
+## Goals of this project
 
-## Introduction
+This assignment focuses on the simulation of road traffic on the main roads of Bangladesh, using python and mesa. We aim at simulating the delays caused by the bridges being damaged, and we identify the bridges that cause the most delays and should be invested in first.
 
-Every project should have a README file to help a first-time user understand what it is about and how they might be able to use it. This file is where you (as a group) shall provide the information needed by the TAs to evaluate and grade your work.
+## Files
 
-If you are looking for information about the Demo model of Assignment 3, navigate to the [model/README.md](model/README.md) in the [model](model) directory. Have **fun** modeling in Python!
+- the ```/data/``` folder contains the cleaned dataset from the teachers and the code preparing it to be fed into the simulation. More information in the ```/data/README.md``` file
+- the ```/experiment/``` folder contains the output data of the simulation. Each .csv file contains the travel time and the id of every truck that reached the sink at the end of the road, in Dhaka.
+- the ```/model/``` folder contains the code relative to the simulation and the display in the browser. More information in the ```/model/README.md``` file
+- the ```/report/``` folder contains the report
 
-## How to Use
+## Dependencies 
 
-Include whatever you think is necessary for someone to understand your work. The README file is usually the first file someone will see and open. It doesn't need to explain what might be obvious, but it should point out the most important things for someone looking at your work. For example, how to launch your program, what are the main files, where to find them, etc.
+- Mesa 2.1.4
+- Pandas
+- Numpy
+- Openpyxl
 
-### Format
+## How to run ?
 
-Most README files for data or software projects are now written in Markdown format, like this document. There are some different flavours, but they are easy to write. See here for more information https://www.markdownguide.org/basic-syntax
-
-Most IDEs can render Markdown files directly.
+Simply execute ```$ python /model/model_run.py``` and follow the instructions in the console. More information about the code can be found in the README in each folder.
