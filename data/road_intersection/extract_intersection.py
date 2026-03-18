@@ -97,9 +97,8 @@ def get_intersection_df(roads_preprocessed, roads_shp):
     ijk = 0
     for idx, intersection in nodes.iterrows():
         ijk += 1
-        if ijk % 100 == 0:
+        if ijk % 1000 == 0:
             print(f"Processing intersection {ijk}/{len(nodes)}...")
-            break
         point = intersection["intersection_point"]
         lat, lon = intersection["lat"], intersection["lon"]
         # Find all roads within threshold

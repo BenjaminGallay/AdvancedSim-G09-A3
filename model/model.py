@@ -63,7 +63,7 @@ class BangladeshModel(Model):
     step_time = 1
 
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-    file_name = os.path.join(BASE_DIR, "data", "demo-4-numerical.csv")
+    file_name = os.path.join(BASE_DIR, "data", "roads.csv")
 
     def __init__(
         self, breakdown_probabilities, seed=None, x_max=500, y_max=500, x_min=0, y_min=0
@@ -90,7 +90,35 @@ class BangladeshModel(Model):
 
         # a list of names of roads to be generated
         # TODO You can also read in the road column to generate this list automatically
-        roads = ["N1", "N2"]
+        roads = [
+            "N1",
+            "N101",
+            "N102",
+            "N103",
+            "N104",
+            "N105",
+            "N106",
+            "N107",
+            "N108",
+            "N109",
+            "N110",
+            "N111",
+            "N112",
+            "N119",
+            "N120",
+            "N123",
+            "N128",
+            "N129",
+            "N2",
+            "N203",
+            "N204",
+            "N205",
+            "N206",
+            "N207",
+            "N208",
+            "N209",
+            "N210",
+        ]
         speed = 48 * 1000 / 60
 
         df_objects_all = []
@@ -312,7 +340,7 @@ class BangladeshModel(Model):
                     agent.pos = (x, y)
 
         print("DRAAAAAAAAAAAAAAAW")
-        pos = {n: (d["lat"], d["lon"]) for n, d in self.graph.nodes(data=True)}
+        pos = {n: (d["lon"], d["lat"]) for n, d in self.graph.nodes(data=True)}
         nx.draw_networkx_nodes(
             self.graph, pos, cmap=plt.get_cmap("jet"), node_size=500, node_color="pink"
         )
@@ -322,9 +350,9 @@ class BangladeshModel(Model):
             (u, v): f"length : {d['weight']}m, \n delay : {d['mean_delay']} minutes"
             for u, v, d in self.graph.edges(data=True)
         }
-        nx.draw_networkx_edge_labels(
-            self.graph, pos, edge_labels=edge_labels, font_size=4
-        )
+        # nx.draw_networkx_edge_labels(
+        #     self.graph, pos, edge_labels=edge_labels, font_size=4
+        # )
         plt.show()
 
     # Given a source and a sink, sets the shortest (directed!) path between the two in the path_ids_dict as a list of ids

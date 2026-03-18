@@ -161,6 +161,7 @@ def assign_non_intersection_numeric_ids(df_out):
     group = df_out[non_intersection_mask].groupby("road", sort=True)
     road_number = group.ngroup() + 1
     element_number = group.cumcount()
+    df_out["id"] = pd.to_numeric(df_out["id"], errors="coerce").astype("Int64")
     df_out.loc[non_intersection_mask, "id"] = road_number * 1_000_000 + element_number
 
 
@@ -172,8 +173,8 @@ def assign_intersection_numeric_ids(df_out):
         if pd.isna(row["id"]):
             crossing_id = k
             # get other intersection lrp from pair
-            row["id"] = crossing_id
-            df_out[df_out["crossing"] == row["idx"]]["id"] = crossing_id
+            df_out.loc[i, "id"] = crossing_id
+            df_out.loc[df_out["crossing"] == row["idx"], "id"] = crossing_id
             k += 1
 
 
@@ -242,6 +243,8 @@ def build_segments(df_roads, bmms_sub, intersection_df):
             "lrp",
             "lrp_next",
             "_chainage_order",
+            "crossing",
+            "idx",
         ]
     ].copy()
 
@@ -380,7 +383,7 @@ def main():
     intersection_df = extract_intersection.get_intersection_df(
         roads_preprocessed, roads_shp
     ).copy()
-
+    
     # Build simulation rows: start, segments, end.
     segments = build_segments(roads_preprocessed, bmms_for_merge, intersection_df)
     starts, ends = build_sourcesinks(roads_preprocessed)
