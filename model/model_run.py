@@ -35,7 +35,7 @@ choice_dict = {
 # scenario 0 = no bridges breaking down : baseline travel time. scenario 8 = most likely breakdowns
 # run time 7200 ticks = 5*24h runtime
 run_length = 7200
-number_of_seeds = 10
+number_of_seeds = 1
 rand = int(1000000000 * time.time() % 1000000)
 seeds = range(rand, rand + number_of_seeds)
 
