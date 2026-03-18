@@ -34,5 +34,8 @@ for road_a, road_b in crossings:
             # this is our intersection
             intersection = row
             print(f'Intersection between {road_a} and {road_b}  is at  {intersection}')
+
+            # here you work
+            # we need to find in which link from road a is the lrp and then make the lrp in road a have the same id with lrp in road b
             break
 
