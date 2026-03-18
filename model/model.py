@@ -60,8 +60,9 @@ class BangladeshModel(Model):
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
     file_name = os.path.join(BASE_DIR, "data", "roads.csv")
 
-    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0):
+    def __init__(self, seed=None, x_max=500, y_max=500, x_min=0, y_min=0, breakdown_probabilities=None):
 
+        self.breakdown_probabilities = breakdown_probabilities
         self.schedule = BaseScheduler(self)
         self.running = True
         self.path_ids_dict = defaultdict(lambda: pd.Series())
@@ -84,7 +85,7 @@ class BangladeshModel(Model):
         # TODO You can also read in the road column to generate this list automatically
         roads = ["N1", "N2"]
 
-        target_roads = df.loc[(df['road'].str.startswith('N1' or 'N2')) & (df['road'].str.len() == 4)]
+        target_roads = df.loc[(df['road'].str.startswith(('N1', 'N2'))) & (df['road'].str.len() == 4)]
         new_roads = target_roads['road'].unique().tolist()
         roads = list(set(roads + new_roads))
 
