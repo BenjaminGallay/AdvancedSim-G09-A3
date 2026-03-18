@@ -1,12 +1,16 @@
 import os
 from collections import defaultdict
 
+import analytical_recorder
+import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 from components import Bridge, Intersection, Link, Sink, Source, SourceSink
 from mesa import Model
 from mesa.space import ContinuousSpace
 from mesa.time import BaseScheduler
+
+from model import analytical_recorder
 
 
 # ---------------------------------------------------------------
@@ -110,6 +114,7 @@ class BangladeshModel(Model):
         current_edge_start = {"road": None, "id": None}
         current_edge_weight = 0
         current_edge_id_list = []
+        current_edge_mean_bridge_delay_per_condition = {0: 0, 1: 0, 2: 0, 3: 0}
 
         for df in df_objects_all:
             for _, row in df.iterrows():  # index, row in ...
@@ -128,46 +133,74 @@ class BangladeshModel(Model):
                     self.sources.append(agent.unique_id)
 
                     # We add a node corresponding to the element and link it to the previous node if they are on the same road
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
+                    self.graph.add_node(
+                        row["id"],
+                        road=row["road"],
+                        type=model_type,
+                        lat=row["lat"],
+                        lon=row["lon"],
+                    )
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
                             current_edge_start["id"],
                             row["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                         self.graph.add_edge(
                             row["id"],
                             current_edge_start["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
                     current_edge_id_list = []
+                    current_edge_mean_bridge_delay_per_condition = {
+                        0: 0,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                    }
 
                 elif model_type == "sink":
                     agent = Sink(row["id"], self, row["length"], name, row["road"])
                     self.sinks.append(agent.unique_id)
 
                     # We add a node corresponding to the element and link it to the previous node if they are on the same road
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
+                    self.graph.add_node(
+                        row["id"],
+                        road=row["road"],
+                        type=model_type,
+                        lat=row["lat"],
+                        lon=row["lon"],
+                    )
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
                             current_edge_start["id"],
                             row["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                         self.graph.add_edge(
                             row["id"],
                             current_edge_start["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
                     current_edge_id_list = []
+                    current_edge_mean_bridge_delay_per_condition = {
+                        0: 0,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                    }
 
                 elif model_type == "sourcesink":
                     agent = SourceSink(
@@ -177,23 +210,37 @@ class BangladeshModel(Model):
                     self.sinks.append(agent.unique_id)
 
                     # We add a node corresponding to the element and link it to the previous node if they are on the same road
-                    self.graph.add_node(row["id"], road=row["road"], type=model_type)
+                    self.graph.add_node(
+                        row["id"],
+                        road=row["road"],
+                        type=model_type,
+                        lat=row["lat"],
+                        lon=row["lon"],
+                    )
                     if current_edge_start["road"] == row["road"]:
                         self.graph.add_edge(
                             current_edge_start["id"],
                             row["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                         self.graph.add_edge(
                             row["id"],
                             current_edge_start["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
                     current_edge_id_list = []
+                    current_edge_mean_bridge_delay_per_condition = {
+                        0: 0,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                    }
 
                 elif model_type == "bridge":
                     agent = Bridge(
@@ -207,6 +254,9 @@ class BangladeshModel(Model):
                     )
                     current_edge_weight += row["length"]
                     current_edge_id_list.append(row["id"])
+                    current_edge_mean_bridge_delay_per_condition[
+                        int(row["condition"])
+                    ] += analytical_recorder.compute_bridge_mean_delay(row["length"])
 
                 elif model_type == "link":
                     agent = Link(row["id"], self, row["length"], name, row["road"])
@@ -222,7 +272,11 @@ class BangladeshModel(Model):
                     # Intersection elements are stored in multiple roads, it is necessary to check wether it is already in the graph or not.
                     if row["id"] not in list(self.graph.nodes):
                         self.graph.add_node(
-                            row["id"], road={row["road"]}, type=model_type
+                            row["id"],
+                            road={row["road"]},
+                            type=model_type,
+                            lat=row["lat"],
+                            lon=row["lon"],
                         )
                     else:  # if the intersection has already been added from another road
                         self.graph.nodes[row["id"]]["road"].add(row["road"])
@@ -234,16 +288,24 @@ class BangladeshModel(Model):
                             row["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                         self.graph.add_edge(
                             row["id"],
                             current_edge_start["id"],
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
+                            mean_delay=current_edge_mean_bridge_delay_per_condition,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
                     current_edge_id_list = []
+                    current_edge_mean_bridge_delay_per_condition = {
+                        0: 0,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                    }
 
                 if agent:
                     self.schedule.add(agent)
@@ -252,18 +314,39 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
+        print("DRAAAAAAAAAAAAAAAW")
+        pos = {n: (d["lat"], d["lon"]) for n, d in self.graph.nodes(data=True)}
+        nx.draw_networkx_nodes(self.graph, pos, cmap=plt.get_cmap("jet"), node_size=500)
+        nx.draw_networkx_labels(self.graph, pos)
+        nx.draw_networkx_edges(self.graph, pos, edge_color="r", arrows=True)
+        edge_labels = {
+            (u, v): f"{d['weight']}m, delay : {d['mean_delay']} minutes"
+            for u, v, d in self.graph.edges(data=True)
+        }
+        nx.draw_networkx_edge_labels(
+            self.graph, pos, edge_labels=edge_labels, font_size=4
+        )
+        plt.show()
+
     # Given a source and a sink, sets the shortest (directed!) path between the two in the path_ids_dict as a list of ids
     def update_path_dict(self, source, sink):
         nodes_list = nx.shortest_path(
             self.graph, source=source, target=sink, weight="weight"
         )
         path = []
+        route_mean_delay = {0: 0, 1: 0, 2: 0, 3: 0}
+        length = 0
         for i in range(len(nodes_list) - 1):
             path.append(nodes_list[i])
             path += self.graph[nodes_list[i]][nodes_list[i + 1]]["ids"]
+            length += self.graph[nodes_list[i]][nodes_list[i + 1]]["weight"]
+            for j in range(4):
+                route_mean_delay[j] += self.graph[nodes_list[i]][nodes_list[i + 1]][
+                    "mean_delay"
+                ][j]
         path.append(nodes_list[-1])
         # print("I'm adding the path", path)
-        self.path_ids_dict[source, sink] = path
+        self.path_ids_dict[source, sink] = (path, length, route_mean_delay)
         return
 
     def get_random_route(self, source):
@@ -278,7 +361,17 @@ class BangladeshModel(Model):
         # Ensures that each path is calculated at most once
         if (source, sink) not in self.path_ids_dict:
             self.update_path_dict(source, sink)
-        return self.path_ids_dict[source, sink]
+
+        mean_delay = 0
+        for i in range(3):
+            mean_delay += (
+                self.breakdown_probabilities[i] * self.path_ids_dict[source, sink][2][i]
+            )
+        speed = 48 * 1000 / 60
+        mean_travel_time = self.path_ids_dict[source, sink][1] / speed + mean_delay
+        # print(mean_travel_time, self.path_ids_dict[source, sink][2])
+
+        return self.path_ids_dict[source, sink][0]
 
     # TODO
     def get_route(self, source):

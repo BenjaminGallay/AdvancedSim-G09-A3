@@ -29,6 +29,21 @@ def bridge_delay_record(length, condition, breakdown_probabilities):
     return
 
 
+def compute_bridge_mean_delay(length):
+    if length < 10:
+        mean_delay = 15
+    elif length < 50:
+        mean_delay = 37.5
+    elif length < 200:
+        mean_delay = 67.5
+    else:
+        mean_delay = (
+            7 / 3
+        ) * 60  # expected value of the triangular distribution of probability
+
+    return mean_delay
+
+
 def road_length_record(length):
     global road_length
     road_length += length
