@@ -26,6 +26,15 @@ roads = [
     "N123",
     "N128",
     "N129",
+    "N2",
+    "N203",
+    "N204",
+    "N205",
+    "N206",
+    "N207",
+    "N208",
+    "N209",
+    "N210",
 ]
 df_list = []
 for road_name in roads:
@@ -52,7 +61,7 @@ for i in range(len(df_list)):
             if min_distance < 0.1:
                 break
         print(f"min distance for roads {roads[i]} and {roads[j]} is {min_distance}")
-        if min_distance < 1:
+        if min_distance < 5:
             crossings.append((roads[i], roads[j]))
 
 print(crossings)
