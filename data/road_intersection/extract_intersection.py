@@ -94,68 +94,72 @@ for road, group in roads_csv.groupby('road'):
         csv_road_firstrow[road] = group.iloc[0]
 
 
-# Deduplicate intersections: only add if no intersection for this pair within 200m
+
+# --- Efficiently handle all roads within 330m of each intersection ---
 new_rows = []
 intersection_registry = {}
+distance_threshold = 0.003  # ~330m in degrees (approx, at equator)
+
 for idx, intersection in nodes.iterrows():
     point = intersection['intersection_point']
     lat, lon = intersection['lat'], intersection['lon']
+    # Find all roads within threshold
     road_distances = [(road, line.distance(point)) for road, line in csv_road_lines.items()]
-    road_distances = sorted(road_distances, key=lambda x: x[1])
-    if len(road_distances) < 2:
+    close_roads = [road for road, dist in road_distances if dist <= distance_threshold]
+    if len(close_roads) < 2:
         continue
-    (road1, d1), (road2, d2) = road_distances[:2]
-    if d1 > 0.001 or d2 > 0.001:
-        continue
-    # Registry key: sorted tuple of road names
-    pair_key = tuple(sorted([road1, road2]))
-    # Check if intersection for this pair exists within 0.002 deg (~200m)
-    already = False
-    if pair_key in intersection_registry:
-        for prev_lat, prev_lon in intersection_registry[pair_key]:
-            dist = np.sqrt((lat - prev_lat)**2 + (lon - prev_lon)**2)
-            if dist < 0.002:
-                already = True
-                break
-    if already:
-        continue
-    # Register this intersection
-    intersection_registry.setdefault(pair_key, []).append((lat, lon))
-    new_idxs = []
-    new_rows_pair = []
-    results = []
-    for road in [road1, road2]:
-        arr_lat, arr_lon = csv_road_latlon[road]
-        arr_chainage = csv_road_chainage[road]
-        result = interpolate_chainage_fast(arr_lat, arr_lon, arr_chainage, lat, lon)
-        results.append(result)
-    # Only proceed if both roads have valid interpolation
-    if any(r is None or r[2] > 0.001 for r in results):
-        continue
-    for i, road in enumerate([road1, road2]):
-        chainage, insert_after, max_dist, i1 = results[i]
-        new_idx = roads_csv['idx'].max() + 1 + len(new_rows) + len(new_rows_pair)
-        new_lrp = f"LRP_CROSS_{new_idx}"
-        new_row = csv_road_firstrow[road].copy()
-        new_row['chainage'] = chainage
-        new_row['lat'] = lat
-        new_row['lon'] = lon
-        new_row['lrp'] = new_lrp
-        new_row['idx'] = new_idx
-        new_row['type'] = 'Crossing'
-        new_row['gap'] = ''
-        new_row['bridgedual'] = ''
-        new_row['condition'] = ''
-        new_row['crossing'] = None
-        road_mask = roads_csv['road'] == road
-        idxs = roads_csv[road_mask].index.tolist()
-        insert_pos = idxs[insert_after] + 1 if insert_after < len(idxs) else len(roads_csv)
-        new_rows_pair.append((insert_pos, new_row, road))
-        new_idxs.append(new_idx)
-    # Always fill crossing column for both
-    new_rows_pair[0][1]['crossing'] = new_idxs[1]
-    new_rows_pair[1][1]['crossing'] = new_idxs[0]
-    new_rows.extend(new_rows_pair)
+    # For all unique pairs of close roads
+    for i in range(len(close_roads)):
+        for j in range(i+1, len(close_roads)):
+            road1, road2 = close_roads[i], close_roads[j]
+            pair_key = tuple(sorted([road1, road2]))
+            # Check if intersection for this pair exists within 0.003 deg (~330m)
+            already = False
+            if pair_key in intersection_registry:
+                for prev_lat, prev_lon in intersection_registry[pair_key]:
+                    dist = np.sqrt((lat - prev_lat)**2 + (lon - prev_lon)**2)
+                    if dist < 0.003:
+                        already = True
+                        break
+            if already:
+                continue
+            # Register this intersection
+            intersection_registry.setdefault(pair_key, []).append((lat, lon))
+            new_idxs = []
+            new_rows_pair = []
+            results = []
+            for road in [road1, road2]:
+                arr_lat, arr_lon = csv_road_latlon[road]
+                arr_chainage = csv_road_chainage[road]
+                result = interpolate_chainage_fast(arr_lat, arr_lon, arr_chainage, lat, lon)
+                results.append(result)
+            # Only proceed if both roads have valid interpolation and are close enough
+            if any(r is None or r[2] > distance_threshold for r in results):
+                continue
+            for k, road in enumerate([road1, road2]):
+                chainage, insert_after, max_dist, i1 = results[k]
+                new_idx = roads_csv['idx'].max() + 1 + len(new_rows) + len(new_rows_pair)
+                new_lrp = f"LRP_CROSS_{new_idx}"
+                new_row = csv_road_firstrow[road].copy()
+                new_row['chainage'] = chainage
+                new_row['lat'] = lat
+                new_row['lon'] = lon
+                new_row['lrp'] = new_lrp
+                new_row['idx'] = new_idx
+                new_row['type'] = 'Crossing'
+                new_row['gap'] = ''
+                new_row['bridgedual'] = ''
+                new_row['condition'] = ''
+                new_row['crossing'] = None
+                road_mask = roads_csv['road'] == road
+                idxs = roads_csv[road_mask].index.tolist()
+                insert_pos = idxs[insert_after] + 1 if insert_after < len(idxs) else len(roads_csv)
+                new_rows_pair.append((insert_pos, new_row, road))
+                new_idxs.append(new_idx)
+            # Always fill crossing column for both
+            new_rows_pair[0][1]['crossing'] = new_idxs[1]
+            new_rows_pair[1][1]['crossing'] = new_idxs[0]
+            new_rows.extend(new_rows_pair)
 
 print(f"Inserting new rows for intersections... : {len(new_rows)}")
 # Insert new rows into DataFrame
@@ -180,6 +184,9 @@ plt.plot(n1_points['lon'], n1_points['lat'], label='N1 (Big Road)', color='blue'
 
 n2_points = roads_csv[roads_csv['road'] == 'N2']
 plt.plot(n2_points['lon'], n2_points['lat'], label='N2 (Big Road)', color='blue', linewidth=2)
+
+z1090_points = roads_csv[roads_csv['road'] == 'Z1090']
+plt.plot(z1090_points['lon'], z1090_points['lat'], label='Z1090 (Small Road)', color='red', linewidth=1)
 
 # Plot N101-N109 as thin green lines
 for road_num in range(101, 109):
