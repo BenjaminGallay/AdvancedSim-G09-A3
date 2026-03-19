@@ -79,9 +79,9 @@ class Bridge(Infra):
             else:
                 delay_time = self.random.triangular(60, 120, 240)
             # sends the information about the delay at the bridge to build the bridges total delay ranking
-            statistical_recorder.bridge_record(
-                self.unique_id % 1000000, int(delay_time)
-            )
+            # statistical_recorder.bridge_record(
+            #     self.unique_id % 1000000, int(delay_time)
+            # )
         return int(delay_time)
 
 

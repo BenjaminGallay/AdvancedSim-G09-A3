@@ -119,10 +119,15 @@ class BangladeshModel(Model):
             "N209",
             "N210",
         ]
+
+        all_roads = df["road"].unique().tolist()
+        n_roads = [road for road in all_roads if road[0] == "N"]
+        # roads = ["N1", "N102", "N103"]
         speed = 48 * 1000 / 60
 
         df_objects_all = []
-        for road in roads:
+        for road in n_roads:
+            print(road)
             # Select all the objects on a particular road in the original order as in the cvs
             df_objects_on_road = df[df["road"] == road]
 
@@ -342,10 +347,10 @@ class BangladeshModel(Model):
         print("DRAAAAAAAAAAAAAAAW")
         pos = {n: (d["lon"], d["lat"]) for n, d in self.graph.nodes(data=True)}
         nx.draw_networkx_nodes(
-            self.graph, pos, cmap=plt.get_cmap("jet"), node_size=500, node_color="pink"
+            self.graph, pos, cmap=plt.get_cmap("jet"), node_size=50, node_color="pink"
         )
-        nx.draw_networkx_labels(self.graph, pos, font_size=4)
-        nx.draw_networkx_edges(self.graph, pos, edge_color="teal", arrows=True)
+        # nx.draw_networkx_labels(self.graph, pos, font_size=1)
+        nx.draw_networkx_edges(self.graph, pos, edge_color="teal", arrows=False)
         edge_labels = {
             (u, v): f"length : {d['weight']}m, \n delay : {d['mean_delay']} minutes"
             for u, v, d in self.graph.edges(data=True)
@@ -354,9 +359,12 @@ class BangladeshModel(Model):
         #     self.graph, pos, edge_labels=edge_labels, font_size=4
         # )
         plt.show()
+        self.check_is_graph_connected()
 
     # Given a source and a sink, sets the shortest (directed!) path between the two in the path_ids_dict as a list of ids
     def update_path_dict(self, source, sink):
+        if not nx.has_path(self.graph, source, sink):
+            print("ALLEEEEEEEEEEEEEEEEEEEEEEEEEEEEEERT", source, sink)
         nodes_list = nx.shortest_path(
             self.graph, source=source, target=sink, weight="weight"
         )
@@ -381,7 +389,7 @@ class BangladeshModel(Model):
         while True:
             # different source and sink
             sink = self.random.choice(self.sinks)
-            if sink is not source:
+            if sink is not source and nx.has_path(self.graph, source, sink):
                 break
         # Ensures that each path is calculated at most once
         if (source, sink) not in self.path_ids_dict:
@@ -393,6 +401,18 @@ class BangladeshModel(Model):
         # print(mean_travel_time, self.path_ids_dict[source, sink][2])
 
         return self.path_ids_dict[source, sink][0]
+
+    def check_is_graph_connected(self):
+        for source in self.sources:
+            for sink in self.sinks:
+                if (sink is not source) and not nx.has_path(self.graph, source, sink):
+                    print(
+                        "ALLEEEEEEEEEEEEEEEEEEEEEEEEEEEEEERT not connected",
+                        source,
+                        sink,
+                        self.graph.nodes[source].get("road"),
+                        self.graph.nodes[sink].get("road"),
+                    )
 
     # TODO
     def get_route(self, source):
