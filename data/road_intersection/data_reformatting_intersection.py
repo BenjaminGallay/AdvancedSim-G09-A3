@@ -1,12 +1,25 @@
 import os
 
-import extract_intersection
+
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import preprocess_bmms
 import xlsx_tools
 
+print("please choose intersection extraction method:")
+print("1. From CSV")
+print("2. From Shapefile")
+print("3. From type/name")
+choice = input("Enter your choice (1, 2, or 3): ")
+if choice == "1":
+    import extract_intersection_from_road as extract_intersection
+elif choice == "2":
+    import extract_intersection_from_shapefile as extract_intersection
+elif choice == "3":
+    import extract_intersection_from_type as extract_intersection
+else:
+    raise ValueError("Invalid choice. Please enter 1, 2, or 3.")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 roads_csv = os.path.join(BASE_DIR, "data", "input_dataset_reformatting", "_roads3.csv")
 bmms_xlsx = os.path.join(

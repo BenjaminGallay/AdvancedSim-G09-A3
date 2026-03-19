@@ -5,3 +5,4 @@ data/input_dataset_reformatting/__pycache__
 /data/.*
 *.pyc
 /experiment/
+/.venv
