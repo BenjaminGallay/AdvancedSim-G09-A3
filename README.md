@@ -17,6 +17,7 @@ This assignment focuses on the simulation of road traffic on the main roads of B
 
 - Mesa 2.1.4
 - Pandas
+- Geopandas
 - Numpy
 - Openpyxl
 
