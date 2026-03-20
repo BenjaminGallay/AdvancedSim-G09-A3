@@ -44,11 +44,12 @@ colours = {
 # scenario 0 = no bridges breaking down : baseline travel time. scenario 8 = most likely breakdowns
 # run time 7200 ticks = 5*24h runtime
 run_length = 7200
-number_of_seeds = 1
+number_of_seeds = 10
 rand = int(1000000000 * time.time() % 1000000)
 seeds = range(rand, rand + number_of_seeds)
 
 
+# gets the user's choice about the scenario and the statistical/analytical approach
 def get_choice():
     valid_choice = False
     print("Select an option :")
@@ -85,7 +86,7 @@ def get_choice():
 
 
 scenario_choice, statistical, analytical = get_choice()
-# Loop through all scenarios
+# takes the statistical/simulation approach
 if statistical:
     for scenario in scenario_choice:
         print(f"\n--- Running scenario {scenario} ---")
@@ -108,9 +109,14 @@ if statistical:
             ":",
             statistics.mean(travel_times),
         )
-        print("total waited time", statistical_recorder.get_bridge_waited_time())
+        print(
+            "total waited time",
+            statistical_recorder.get_bridge_waited_time(),
+            "minutes",
+        )
     sim_model.draw_graph()
 
+# takes the analytical approach, only one Model is build for each scenario, and no need for seed randomization
 if analytical:
     for scenario in scenario_choice:
         print(f"\n--- Running scenario {scenario} ---")
@@ -118,6 +124,7 @@ if analytical:
             breakdown_probabilities=BREAKDOWN_PROBABILITIES[scenario]
         )
         print("model built")
+        # computes the shortest path for each pair of road extremities
         routes = sim_model.get_all_routes()
         lengths, delays = [], []
         for key in routes.keys():
@@ -126,6 +133,7 @@ if analytical:
         plt.plot(
             lengths, delays, "o", c=colours[scenario], label=f"Scenario {scenario}"
         )
+        # linear regression
         m, b = np.polyfit(lengths, delays, 1)
         x_line = np.linspace(min(lengths), max(lengths), 100)
         y_line = m * x_line + b

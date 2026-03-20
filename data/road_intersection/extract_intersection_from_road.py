@@ -4,6 +4,7 @@ import pandas as pd
 from geopy.distance import geodesic
 
 
+# returns the dataframe with detected intersections
 def get_intersection_df(menfou, balec):
     roads = [
         "N1",
@@ -34,15 +35,18 @@ def get_intersection_df(menfou, balec):
         "N209",
         "N210",
     ]
+    # tells which are the main roads, and wich are side roads
     road_structure = {
         "N1": [road for road in roads if road[:2] == "N1" and road != "N1"] + ["N2"],
         "N102": ["N103"],
         "N2": [road for road in roads if road[:2] == "N2" and road != "N2"]
         + [road for road in roads if road[:2] == "N1" and road != "N1"],
     }
+
     BASE_DIR = os.path.dirname(os.path.dirname(__file__))
     file_name = os.path.join(BASE_DIR, "input_dataset_reformatting", "_roads3.csv")
     df = pd.read_csv(file_name)
+    # columns of the output dataframe
     columns = [
         "road",
         "chainage",
@@ -61,10 +65,12 @@ def get_intersection_df(menfou, balec):
     df_out = pd.DataFrame(columns=columns)
     for main_road in road_structure.keys():
         main_df = df[df["road"] == main_road]
+        # runs the algorithm once for roads starts and once for roads ends
         for lrp in ["LRPS", "LRPE"]:
             df_start_ends_side_roads = df[
                 df["road"].isin(road_structure[main_road]) & (df["lrp"] == lrp)
             ]
+            # stores the closest points for all the side roads to their main road
             closest_points = {
                 road: {
                     "distance": 100000000000000000000,
@@ -86,6 +92,7 @@ def get_intersection_df(menfou, balec):
                         (main_row["lat"], main_row["lon"]),
                         (side_row["lat"], side_row["lon"]),
                     )
+                    # updates the closest points if the distance is lower than the previous one
                     if distance < closest_points[side_row["road"]]["distance"]:
                         closest_points[side_row["road"]] = {
                             "distance": distance,
@@ -98,9 +105,10 @@ def get_intersection_df(menfou, balec):
                             "lat_side": float(side_row["lat"]),
                             "lon_side": float(side_row["lon"]),
                         }
-            # print(closest_points)
             for road in road_structure[main_road]:
+                # threshold of 5kms (explained in the report)
                 if closest_points[road]["distance"] < 5:
+                    # writes to the dataframe
                     df_out.loc[len(df_out)] = {
                         "road": main_road,
                         "chainage": float(closest_points[road]["chainage_main"]),

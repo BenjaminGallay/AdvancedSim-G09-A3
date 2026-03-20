@@ -328,20 +328,11 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
+    # draws the graph of the road network
     def draw_graph(self):
         pos = {n: (d["lon"], d["lat"]) for n, d in self.graph.nodes(data=True)}
-        nx.draw_networkx_nodes(
-            self.graph, pos, cmap=plt.get_cmap("jet"), node_size=50, node_color="pink"
-        )
-        # nx.draw_networkx_labels(self.graph, pos, font_size=10)
+        nx.draw_networkx_nodes(self.graph, pos, node_size=50, node_color="pink")
         nx.draw_networkx_edges(self.graph, pos, edge_color="teal", arrows=False)
-        edge_labels = {
-            (u, v): f"length : {d['weight']}m, \n delay : {d['mean_delay']} minutes"
-            for u, v, d in self.graph.edges(data=True)
-        }
-        # nx.draw_networkx_edge_labels(
-        #     self.graph, pos, edge_labels=edge_labels, font_size=4
-        # )
         plt.show()
         self.check_is_graph_connected()
         return
@@ -363,10 +354,10 @@ class BangladeshModel(Model):
                 "mean_delay"
             ]
         path.append(nodes_list[-1])
-        # print("I'm adding the path", path)
         self.path_ids_dict[source, sink] = (path, length, route_mean_delay)
         return
 
+    # gets a random route by choosing a random sink
     def get_random_route(self, source):
         """
         pick up a random route given an origin
@@ -382,6 +373,7 @@ class BangladeshModel(Model):
 
         return self.path_ids_dict[source, sink][0]
 
+    # check if the graph is connected (for debugging)
     def check_is_graph_connected(self):
         n1_start = 1000000
         for source in self.sources:
@@ -391,6 +383,7 @@ class BangladeshModel(Model):
                 )
                 continue
 
+    # computes the shortest path for all the pairs of roads extremities
     def get_all_routes(self):
         for source in self.sources:
             for sink in self.sinks:
@@ -398,7 +391,7 @@ class BangladeshModel(Model):
                     self.update_path_dict(source, sink)
         return self.path_ids_dict
 
-    # TODO
+    # uses the random route choice
     def get_route(self, source):
         return self.get_random_route(source)
 
