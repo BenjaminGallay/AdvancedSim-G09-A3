@@ -8,7 +8,7 @@ This assignment focuses on the simulation of road traffic on the main roads of B
 
 ## Files
 
-- the ```/data/``` folder contains the cleaned dataset from the teachers and the code preparing it to be fed into the simulation. More information in the ```/data/README.md``` file
+- the ```/road_intersection/``` folder contains the cleaned dataset from the teachers and the code preparing it to be fed into the simulation. More information in the ```/road_intersection/README.md``` file
 - the ```/experiment/``` folder contains the output data of the simulation. Each .csv file contains the travel time and the id of every truck that reached the sink at the end of the road, in Dhaka.
 - the ```/model/``` folder contains the code relative to the simulation and the display in the browser. More information in the ```/model/README.md``` file
 - the ```/report/``` folder contains the report
