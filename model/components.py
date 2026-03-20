@@ -334,9 +334,12 @@ class Vehicle(Agent):
         if next_infra.length > distance:
             # stay on this object:
             self.arrive_at_next(next_infra, distance)
-        else:
-            # drive to next object:
+        elif distance - next_infra.length > 0:
+            # skip node and continue driving
             self.drive_to_next(distance - next_infra.length)
+        else:
+            # skip node, but stop recursion
+            self.arrive_at_next(next_infra, 0)
 
     def arrive_at_next(self, next_infra, location_offset):
         """

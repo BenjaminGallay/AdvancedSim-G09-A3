@@ -128,7 +128,6 @@ def get_intersection_df(roads_preprocessed, roads_shp):
 
     intersection_rows["intersection_id"] = intersection_rows["idx"].map(intersection_id_map)
 
-    intersection_rows.to_csv("intersection_rows.csv", index=False)
     return intersection_rows
 
 
