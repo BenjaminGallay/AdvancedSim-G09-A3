@@ -9,6 +9,7 @@ from components import Bridge, Intersection, Link, Sink, Source, SourceSink
 from mesa import Model
 from mesa.space import ContinuousSpace
 from mesa.time import BaseScheduler
+from numpy._core.shape_base import block
 
 from model import analytical_recorder
 
@@ -126,8 +127,7 @@ class BangladeshModel(Model):
         speed = 48 * 1000 / 60
 
         df_objects_all = []
-        for road in n_roads:
-            print(road)
+        for road in roads:
             # Select all the objects on a particular road in the original order as in the cvs
             df_objects_on_road = df[df["road"] == road]
 
@@ -344,7 +344,7 @@ class BangladeshModel(Model):
                     self.space.place_agent(agent, (x, y))
                     agent.pos = (x, y)
 
-        print("DRAAAAAAAAAAAAAAAW")
+    def draw_graph(self):
         pos = {n: (d["lon"], d["lat"]) for n, d in self.graph.nodes(data=True)}
         nx.draw_networkx_nodes(
             self.graph, pos, cmap=plt.get_cmap("jet"), node_size=50, node_color="pink"
@@ -360,6 +360,7 @@ class BangladeshModel(Model):
         # )
         plt.show()
         self.check_is_graph_connected()
+        return
 
     # Given a source and a sink, sets the shortest (directed!) path between the two in the path_ids_dict as a list of ids
     def update_path_dict(self, source, sink):
@@ -403,16 +404,20 @@ class BangladeshModel(Model):
         return self.path_ids_dict[source, sink][0]
 
     def check_is_graph_connected(self):
+        n1_start = 1000000
+        for source in self.sources:
+            if not nx.has_path(self.graph, source, n1_start):
+                print(
+                    f"The {self.graph.nodes[source].get('road')} is not connected to the N1 road"
+                )
+                continue
+
+    def get_all_routes(self):
         for source in self.sources:
             for sink in self.sinks:
-                if (sink is not source) and not nx.has_path(self.graph, source, sink):
-                    print(
-                        "ALLEEEEEEEEEEEEEEEEEEEEEEEEEEEEEERT not connected",
-                        source,
-                        sink,
-                        self.graph.nodes[source].get("road"),
-                        self.graph.nodes[sink].get("road"),
-                    )
+                if (sink is not source) and nx.has_path(self.graph, source, sink):
+                    self.update_path_dict(source, sink)
+        return self.path_ids_dict
 
     # TODO
     def get_route(self, source):

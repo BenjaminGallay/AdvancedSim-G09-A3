@@ -1,6 +1,8 @@
 import statistics
 import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 import statistical_recorder
 
 from model import BangladeshModel
@@ -32,6 +34,13 @@ choice_dict = {
     "all": range(5),
 }
 
+colours = {
+    0: "black",
+    1: "green",
+    2: "yellow",
+    3: "orange",
+    4: "red",
+}
 # scenario 0 = no bridges breaking down : baseline travel time. scenario 8 = most likely breakdowns
 # run time 7200 ticks = 5*24h runtime
 run_length = 7200
@@ -42,7 +51,6 @@ seeds = range(rand, rand + number_of_seeds)
 
 def get_choice():
     valid_choice = False
-    bonus = False
     print("Select an option :")
     print("- number 0 to 4, runs the corresponding scenario")
     print("- 'all' runs all scenarios successively")
@@ -53,41 +61,82 @@ def get_choice():
             valid_choice = True
         else:
             print("invalid input, please try again")
+    scenario_choice = choice_dict[choice]
 
-    return choice_dict[choice]
+    valid_choice = False
+    print("Select an option :")
+    print("1 - Runs an analytical analysis on the network")
+    print("2 - Runs a simulation on the network and outputs the statistical values")
+
+    analytical = False
+    statistical = False
+    while not valid_choice:
+        choice = input("Enter your choice : ")
+        if choice == "1":
+            valid_choice = True
+            analytical = True
+        elif choice == "2":
+            valid_choice = True
+            statistical = True
+        else:
+            print("invalid input, please try again")
+
+    return scenario_choice, statistical, analytical
 
 
-scenarios = get_choice()
+scenario_choice, statistical, analytical = get_choice()
 # Loop through all scenarios
-for scenario in scenarios:
-    statistical_recorder.reset_times()
-    print(f"\n--- Running scenario {scenario} ---")
+if statistical:
+    for scenario in scenario_choice:
+        print(f"\n--- Running scenario {scenario} ---")
+        statistical_recorder.reset_times()
+        for seed in seeds:
+            sim_model = BangladeshModel(
+                seed=seed, breakdown_probabilities=BREAKDOWN_PROBABILITIES[scenario]
+            )
+            # Check if the seed is set
+            print("SEED " + str(sim_model._seed))
 
-    for seed in seeds:
-        # analytical_recorder.reset()
-        sim_model = BangladeshModel(
-            seed=seed, breakdown_probabilities=BREAKDOWN_PROBABILITIES[scenario]
+            # One run with given steps
+            for i in range(run_length):
+                sim_model.step()
+        # return the average for all seeds
+        ids, travel_times = statistical_recorder.write_to_file_and_return(scenario)
+        print(
+            "statistical average travel time for scenario",
+            scenario,
+            ":",
+            statistics.mean(travel_times),
         )
+        print("total waited time", statistical_recorder.get_bridge_waited_time())
+    sim_model.draw_graph()
 
-        # Check if the seed is set
-        print("SEED " + str(sim_model._seed))
-
-        # One run with given steps
-        for i in range(run_length):
-            sim_model.step()
-
-    ids, travel_times, frequencies = statistical_recorder.write_to_file_and_return(
-        scenario
-    )
-    print(
-        "statistical average travel time for scenario",
-        scenario,
-        ":",
-        statistics.mean(travel_times),
-    )
-    # print(
-    #     "analytical expected travel time for scenario",
-    #     scenario,
-    #     ":",
-    #     analytical_recorder.get_expected_mean_travel_time(),
-    # )
+if analytical:
+    for scenario in scenario_choice:
+        print(f"\n--- Running scenario {scenario} ---")
+        sim_model = BangladeshModel(
+            breakdown_probabilities=BREAKDOWN_PROBABILITIES[scenario]
+        )
+        print("model built")
+        routes = sim_model.get_all_routes()
+        lengths, delays = [], []
+        for key in routes.keys():
+            lengths.append(routes[key][1] / 1000)
+            delays.append(routes[key][2])
+        plt.plot(
+            lengths, delays, "o", c=colours[scenario], label=f"Scenario {scenario}"
+        )
+        m, b = np.polyfit(lengths, delays, 1)
+        x_line = np.linspace(min(lengths), max(lengths), 100)
+        y_line = m * x_line + b
+        plt.plot(
+            x_line,
+            y_line,
+            c=colours[scenario],
+            label=f"Linear regression for scenario {scenario}, {np.round(m, 1)} minute/km delay",
+        )
+        plt.xlabel("Path length in kilometers")
+        plt.ylabel("Average path delay in minutes")
+    plt.legend()
+    plt.show()
+    sim_model.draw_graph()
