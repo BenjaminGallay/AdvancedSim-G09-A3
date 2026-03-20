@@ -207,6 +207,10 @@ def build_segments(df_roads, bmms_sub, intersection_df):
     df["chainage_next"] = df.groupby("road")["chainage"].shift(-1)
     df["gap_next"] = df.groupby("road")["gap"].shift(-1)
 
+    # print nbr of intersection after build_segments
+    nbr_after_build = len(df[df["type"] == "intersection"])
+    print(nbr_after_build)
+
     # 2) Join BMMS metadata on (road, current lrp), then backfill from next lrp.
     #    This handles cases where BMMS data is recorded on the bridge end LRP.
     df = df.merge(
@@ -217,7 +221,14 @@ def build_segments(df_roads, bmms_sub, intersection_df):
         validate="many_to_one",
     )
 
+    #print number of intersection with BMMS data after merge
+    nbr_after_merge = len(df[df["type"] == "intersection"])
+    print(nbr_after_merge)
+
     bmms_backfill(bmms_sub, df)
+    # print number of intersection with BMMS data after backfill
+    nbr_after_backfill = len(df[df["type"] == "intersection"])
+    print(nbr_after_backfill)
 
     # 3) Derive core segment properties.
     #    - type from gap pattern
@@ -225,17 +236,31 @@ def build_segments(df_roads, bmms_sub, intersection_df):
     fill_type(df)
     fill_length(df)
 
-    # 4) Keep only rows with a valid next point (= valid segment starts).
-    segments = df[df["lrp_next"].notna()].copy()
+    #print number of intersection with length after fill_length
+    nbr_after_length = len(df[df["model_type"] == "intersection"])
+    print(nbr_after_length)
+
+    # 4) Keep all intersection rows, filter only link/bridge/ferry rows by lrp_next
+    intersection_mask = df["model_type"] == "intersection"
+    segments_intersection = df[intersection_mask].copy()
+    segments_other = df[~intersection_mask & df["lrp_next"].notna()].copy()
+    segments = pd.concat([segments_intersection, segments_other], ignore_index=True, sort=False)
     segments["id"] = (
-        segments["road"] + "_" + segments["lrp"] + "_" + segments["lrp_next"]
+        segments["road"] + "_" + segments["lrp"] + "_" + segments["lrp_next"].astype(str)
     )
+
+    #print number of intersection after keeping all
+    nbr_after_next = len(segments[segments["model_type"] == "intersection"])
+    print(nbr_after_next)
 
     # 5) Fill bridge-only fields.
     fill_condition(segments)
     fill_bridgedual(segments)
     fill_side_metrics(segments)
 
+    # print number of intersection with condition/bridgedual/side metrics after fill
+    nbr_after_fill = len(segments[segments["model_type"] == "intersection"])
+    print(nbr_after_fill)
     segments["_chainage_order"] = segments["chainage"]
 
     return segments[
@@ -398,7 +423,11 @@ def main():
     ).copy()
     
     # Build simulation rows: start, segments, end.
+    # keep track of number of intersection :
+    nbr_intersection = len(intersection_df[intersection_df["type"] == "intersection"])
+    print(nbr_intersection)
     segments = build_segments(roads_preprocessed, bmms_for_merge, intersection_df)
+
     starts, ends = build_sourcesinks(roads_preprocessed)
 
     df_out = pd.concat([starts, segments, ends], ignore_index=True, sort=False)
@@ -418,9 +447,21 @@ def main():
 
     df_out = df_out.drop(columns=["_chainage_order"])
 
+
+    for main_road in ["N1", "N2"]:
+        intersection_mask = (df_out["road"] == main_road) & (df_out["model_type"] == "intersection")
+        intersection_ids = df_out.loc[intersection_mask, "id"].unique()
+        paired_roads = set()
+        for iid in intersection_ids:
+            paired = df_out[(df_out["id"] == iid) & (df_out["road"] != main_road)]["road"].unique()
+            paired_roads.update(paired)
+        print(f"Roads paired with {main_road} via intersection: {paired_roads}")
+
     df_out.to_csv(out_csv, index=False)
     print(f"Wrote {len(df_out)} rows to {out_csv}")
 
 
 if __name__ == "__main__":
     main()
+
+

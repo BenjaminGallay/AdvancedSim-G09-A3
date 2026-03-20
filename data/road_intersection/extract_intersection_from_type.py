@@ -5,6 +5,8 @@ from shapely.geometry import LineString, Point
 
 
 def get_intersection_df(roads_preprocessed, roads_shp):
+    # Diagnostics: track referenced roads that could not be paired or created (always uppercase)
+    unpaired_references = set()
 
     """
     Given a preprocessed roads DataFrame, finds intersection LRPs by searching for
@@ -45,41 +47,88 @@ def get_intersection_df(roads_preprocessed, roads_shp):
     for i, row in roads_csv.iterrows():
         lrp_map[(str(row["road"]).replace(" ", ""), str(row["lrp"]))] = i
 
-    # For each intersection row, try to find matching LRP(s) on the other road(s)
+    # Track paired roads for N1 and N2
+    paired_roads_N1 = set()
+    paired_roads_N2 = set()
+
+
+    # For each intersection row, duplicate for each intersecting road, assign unique idx, and pair by minimum distance
+    new_rows = []
+    intersection_points = []
     for i, row in intersection_rows.iterrows():
         this_road = str(row["road"]).replace(" ", "")
-        this_lrp = row["lrp"]
-        for other_road in row["intersecting_roads"]:
-            # Find candidate rows on the other road that reference this road in their name/type
-            candidates = roads_csv[
-                (roads_csv["road"].astype(str).str.replace(" ", "") == other_road)
-            ]
-            # Look for rows that mention this road in their name/type
-            found = False
-            for j, crow in candidates.iterrows():
-                # Check if this road is mentioned in the candidate's name or type
-                name_type = str(crow.get("name", "")) + " " + str(crow.get("type", ""))
-                if this_road in extract_road_names(name_type):
-                    # Mark crossing for both
-                    roads_csv.at[i, "crossing"] = crow["idx"]
-                    roads_csv.at[j, "crossing"] = row["idx"]
-                    found = True
-            # If not found, mark the intersection row with the LRP on the other road closest to this LRP (by chainage, then by lat/lon if available)
-            if not found and not candidates.empty:
-                # Try to use chainage if available
-                try:
-                    this_lat = float(row.get("lat", np.nan))
-                    this_lon = float(row.get("lon", np.nan))
-                    dists = (candidates[["lat", "lon"]].astype(float) - [this_lat, this_lon]) ** 2
-                    distsum = dists["lat"] + dists["lon"]
-                    idx_closest = distsum.idxmin()
-                    print(f"Warning: No direct LRP match found for intersection row {i} with road {other_road}. Marking with closest candidate by lat/lon.")
-                    #print(row['lat'], row['lon'])
-                    #print(candidates.loc[idx_closest]["lat"], candidates.loc[idx_closest]["lon"])
-                    roads_csv.at[i, "crossing"] = candidates.loc[idx_closest, "idx"]
-                except Exception:
-                    # Fallback: just use the first candidate
-                    print(f"Warning: No direct LRP match found for intersection row {i} with road {other_road}. Marking with first candidate.")
-                    roads_csv.at[i, "crossing"] = candidates.iloc[0]["idx"]
+        intersecting_roads = row["intersecting_roads"]
+        this_lat = float(row.get("lat", np.nan))
+        this_lon = float(row.get("lon", np.nan))
+        for idx, other_road in enumerate(intersecting_roads):
+            other_road = other_road.upper()
+            # Track pairing
+            if this_road == "N1":
+                paired_roads_N1.add(other_road)
+            if this_road == "N2":
+                paired_roads_N2.add(other_road)
 
-    return roads_csv
+            # Use _dupli{idx} for duplicate LRPs
+            lrp_suffix = "_INTER" + (f"_dupli{idx}" if len(intersecting_roads) > 1 else "")
+            new_row = row.copy()
+            new_row["road"] = this_road
+            new_row["lrp"] = str(row["lrp"]) + lrp_suffix
+            new_row["type"] = "intersection"
+            new_row["crossing"] = None  # Will be set below
+            # Assign unique idx for this intersection row
+            new_row["idx"] = len(roads_csv) + len(new_rows)
+            intersection_points.append((this_road, new_row["idx"], this_lat, this_lon, other_road, new_row["lrp"]))
+            new_rows.append(new_row)
+
+    # Add all new intersection rows
+    roads_csv = pd.concat([roads_csv, pd.DataFrame(new_rows)], ignore_index=True, sort=False)
+
+    # Now pair intersection rows by minimum distance for each road pair
+    intersection_df = roads_csv[roads_csv["type"] == "intersection"].copy()
+    # Build lookup for intersection points by road and lrp
+    road_points = {}
+    for road, idx, lat, lon, other_road, lrp in intersection_points:
+        road_points.setdefault(road, []).append((idx, lat, lon, other_road, lrp))
+
+    # For each road pair, pair by minimum distance and ensure unique crossing
+    paired = set()
+    for road in road_points:
+        for idx, lat, lon, other_road, lrp in road_points[road]:
+            # Find candidate points on other_road not already paired
+            candidates = [t for t in road_points.get(other_road, []) if (t[0], idx) not in paired and (idx, t[0]) not in paired]
+            if candidates:
+                # Find closest by distance
+                dists = [np.sqrt((lat - c[1]) ** 2 + (lon - c[2]) ** 2) for c in candidates]
+                min_idx = np.argmin(dists)
+                other_idx = candidates[min_idx][0]
+                # Set crossing values
+                intersection_df.loc[intersection_df["idx"] == idx, "crossing"] = other_idx
+                intersection_df.loc[intersection_df["idx"] == other_idx, "crossing"] = idx
+                paired.add((idx, other_idx))
+
+    print("Roads paired with N1:", paired_roads_N1)
+    print("Roads paired with N2:", paired_roads_N2)
+
+    # Only keep rows where type == 'intersection' and crossing is not None
+    intersection_mask = (intersection_df["type"] == "intersection") & (intersection_df["crossing"].notna())
+    intersection_rows = intersection_df[intersection_mask].copy()
+
+    # Assign intersection group ids using connected components
+    import networkx as nx
+    G = nx.Graph()
+    for _, row in intersection_rows.iterrows():
+        G.add_node(row["idx"])
+        if not pd.isna(row["crossing"]):
+            G.add_edge(row["idx"], int(row["crossing"]))
+
+    intersection_id_map = {}
+    for group_id, component in enumerate(nx.connected_components(G)):
+        for idx in component:
+            intersection_id_map[idx] = group_id
+
+    intersection_rows["intersection_id"] = intersection_rows["idx"].map(intersection_id_map)
+
+    intersection_rows.to_csv("intersection_rows.csv", index=False)
+    return intersection_rows
+
+
