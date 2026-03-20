@@ -1,4 +1,8 @@
 
+# Goal
+
+This folder contain the necessary script to generate simulation data. Launch the data_reformating_intersection.py and follow the instruction.
+
 # Files
 
 - The `/data/road_intersection/` folder contains code and data for extracting, processing, and analyzing road intersection information, including GIS shapefiles, bridge data, and intersection detection logic.
