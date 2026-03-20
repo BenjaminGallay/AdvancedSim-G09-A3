@@ -181,8 +181,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                         self.graph.add_edge(
                             row["id"],
@@ -190,8 +188,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
@@ -217,8 +213,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                         self.graph.add_edge(
                             row["id"],
@@ -226,8 +220,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
@@ -256,8 +248,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                         self.graph.add_edge(
                             row["id"],
@@ -265,8 +255,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
@@ -320,8 +308,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list,
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                         self.graph.add_edge(
                             row["id"],
@@ -329,8 +315,6 @@ class BangladeshModel(Model):
                             weight=current_edge_weight,
                             ids=current_edge_id_list[::-1],
                             mean_delay=current_edge_mean_bridge_delay,
-                            mean_travel_time=current_edge_weight / speed
-                            + current_edge_mean_bridge_delay,
                         )
                     current_edge_start = {"road": row["road"], "id": row["id"]}
                     current_edge_weight = 0
@@ -349,7 +333,7 @@ class BangladeshModel(Model):
         nx.draw_networkx_nodes(
             self.graph, pos, cmap=plt.get_cmap("jet"), node_size=50, node_color="pink"
         )
-        # nx.draw_networkx_labels(self.graph, pos, font_size=1)
+        # nx.draw_networkx_labels(self.graph, pos, font_size=10)
         nx.draw_networkx_edges(self.graph, pos, edge_color="teal", arrows=False)
         edge_labels = {
             (u, v): f"length : {d['weight']}m, \n delay : {d['mean_delay']} minutes"
@@ -395,11 +379,6 @@ class BangladeshModel(Model):
         # Ensures that each path is calculated at most once
         if (source, sink) not in self.path_ids_dict:
             self.update_path_dict(source, sink)
-
-        mean_delay = self.path_ids_dict[source, sink][2]
-        speed = 48 * 1000 / 60
-        mean_travel_time = self.path_ids_dict[source, sink][1] / speed + mean_delay
-        # print(mean_travel_time, self.path_ids_dict[source, sink][2])
 
         return self.path_ids_dict[source, sink][0]
 

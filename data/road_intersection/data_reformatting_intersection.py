@@ -1,6 +1,5 @@
 import os
 
-
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -19,7 +18,8 @@ elif choice == "2":
 elif choice == "3":
     import extract_intersection_from_type as extract_intersection
 else:
-    raise ValueError("Invalid choice. Please enter 1, 2, or 3.")
+    import extract_intersection_ben as extract_intersection
+    # raise ValueError("Invalid choice. Please enter 1, 2, or 3.")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 roads_csv = os.path.join(BASE_DIR, "data", "input_dataset_reformatting", "_roads3.csv")
 bmms_xlsx = os.path.join(
@@ -221,7 +221,7 @@ def build_segments(df_roads, bmms_sub, intersection_df):
         validate="many_to_one",
     )
 
-    #print number of intersection with BMMS data after merge
+    # print number of intersection with BMMS data after merge
     nbr_after_merge = len(df[df["type"] == "intersection"])
     print(nbr_after_merge)
 
@@ -236,7 +236,7 @@ def build_segments(df_roads, bmms_sub, intersection_df):
     fill_type(df)
     fill_length(df)
 
-    #print number of intersection with length after fill_length
+    # print number of intersection with length after fill_length
     nbr_after_length = len(df[df["model_type"] == "intersection"])
     print(nbr_after_length)
 
@@ -244,12 +244,18 @@ def build_segments(df_roads, bmms_sub, intersection_df):
     intersection_mask = df["model_type"] == "intersection"
     segments_intersection = df[intersection_mask].copy()
     segments_other = df[~intersection_mask & df["lrp_next"].notna()].copy()
-    segments = pd.concat([segments_intersection, segments_other], ignore_index=True, sort=False)
+    segments = pd.concat(
+        [segments_intersection, segments_other], ignore_index=True, sort=False
+    )
     segments["id"] = (
-        segments["road"] + "_" + segments["lrp"] + "_" + segments["lrp_next"].astype(str)
+        segments["road"]
+        + "_"
+        + segments["lrp"]
+        + "_"
+        + segments["lrp_next"].astype(str)
     )
 
-    #print number of intersection after keeping all
+    # print number of intersection after keeping all
     nbr_after_next = len(segments[segments["model_type"] == "intersection"])
     print(nbr_after_next)
 
@@ -421,7 +427,7 @@ def main():
     intersection_df = extract_intersection.get_intersection_df(
         roads_preprocessed, roads_shp
     ).copy()
-    
+
     # Build simulation rows: start, segments, end.
     # keep track of number of intersection :
     nbr_intersection = len(intersection_df[intersection_df["type"] == "intersection"])
@@ -447,13 +453,16 @@ def main():
 
     df_out = df_out.drop(columns=["_chainage_order"])
 
-
     for main_road in ["N1", "N2"]:
-        intersection_mask = (df_out["road"] == main_road) & (df_out["model_type"] == "intersection")
+        intersection_mask = (df_out["road"] == main_road) & (
+            df_out["model_type"] == "intersection"
+        )
         intersection_ids = df_out.loc[intersection_mask, "id"].unique()
         paired_roads = set()
         for iid in intersection_ids:
-            paired = df_out[(df_out["id"] == iid) & (df_out["road"] != main_road)]["road"].unique()
+            paired = df_out[(df_out["id"] == iid) & (df_out["road"] != main_road)][
+                "road"
+            ].unique()
             paired_roads.update(paired)
         print(f"Roads paired with {main_road} via intersection: {paired_roads}")
 
@@ -463,5 +472,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
